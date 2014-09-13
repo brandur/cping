@@ -4,12 +4,12 @@ import (
 	"code.google.com/p/gcfg"
 	"encoding/json"
 	"fmt"
+	homedir "github.com/mitchellh/go-homedir"
 	flag "github.com/ogier/pflag"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
-	"os/user"
 	"strings"
 )
 
@@ -119,13 +119,13 @@ func getIp() (string, error) {
 }
 
 func loadConf() (*Conf, error) {
-	user, err := user.Current()
+	home, err := homedir.Dir()
 	if err != nil {
 		return nil, err
 	}
 
 	var conf Conf
-	err = gcfg.ReadFileInto(&conf, user.HomeDir+"/"+ConfFile)
+	err = gcfg.ReadFileInto(&conf, home+"/"+ConfFile)
 	if err != nil {
 		return nil, err
 	}
