@@ -57,12 +57,12 @@ func fail(err error) {
 }
 
 func getDnsRecord(conf *Conf) (*Record, error) {
-	query := url.Values{}
-	query.Set("a", "rec_load_all")
-	query.Set("email", conf.CloudFlare.Email)
-	query.Set("tkn", conf.CloudFlare.Token)
-	query.Set("z", conf.CloudFlare.Zone)
-
+	query := url.Values{
+		"a":     {"rec_load_all"},
+		"email": {conf.CloudFlare.Email},
+		"tkn":   {conf.CloudFlare.Token},
+		"z":     {conf.CloudFlare.Zone},
+	}
 	resp, err := http.Get(CloudFlareApiUrl + "?" + query.Encode())
 	if err != nil {
 		return nil, err
@@ -128,16 +128,17 @@ func loadConf() (*Conf, error) {
 }
 
 func updateDnsRecord(conf *Conf, record *Record, ip string) error {
-	form := url.Values{}
-	form.Set("a", "rec_edit")
-	form.Set("content", ip)
-	form.Set("email", conf.CloudFlare.Email)
-	form.Set("id", record.Id)
-	form.Set("name", conf.CloudFlare.Name)
-	form.Set("tkn", conf.CloudFlare.Token)
-	form.Set("ttl", record.Ttl)
-	form.Set("type", record.Type)
-	form.Set("z", conf.CloudFlare.Zone)
+	form := url.Values{
+		"a":       {"rec_edit"},
+		"content": {ip},
+		"email":   {conf.CloudFlare.Email},
+		"id":      {record.Id},
+		"name":    {conf.CloudFlare.Name},
+		"tkn":     {conf.CloudFlare.Token},
+		"ttl":     {record.Ttl},
+		"type":    {record.Type},
+		"z":       {conf.CloudFlare.Zone},
+	}
 	resp, err := http.PostForm(CloudFlareApiUrl, form)
 	if err != nil {
 		return err
