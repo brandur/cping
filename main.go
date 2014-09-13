@@ -46,10 +46,11 @@ type Options struct {
 }
 
 type Record struct {
-	Id   string `json:"rec_id"`
-	Name string `json:"name"`
-	Ttl  string `json:"ttl"`
-	Type string `json:"type"`
+	Content string `json:"content"`
+	Id      string `json:"rec_id"`
+	Name    string `json:"name"`
+	Ttl     string `json:"ttl"`
+	Type    string `json:"type"`
 }
 
 type RecordSet struct {
@@ -182,8 +183,8 @@ func main() {
 		fail(err)
 	}
 	if options.Verbose {
-		fmt.Printf("Record ID for %s [zone: %s]: %s\n",
-			conf.CloudFlare.Name, conf.CloudFlare.Zone, record.Id)
+		fmt.Printf("Record ID for %s [zone: %s]: %s (%s)\n",
+			conf.CloudFlare.Name, conf.CloudFlare.Zone, record.Id, record.Content)
 	}
 
 	ip, err := getIp()
@@ -194,11 +195,17 @@ func main() {
 		fmt.Printf("Current IP: %s\n", ip)
 	}
 
-	err = updateDnsRecord(conf, record, ip)
-	if err != nil {
-		fail(err)
-	}
-	if options.Verbose {
-		fmt.Printf("Updated successfully\n")
+	if record.Content != ip {
+		err = updateDnsRecord(conf, record, ip)
+		if err != nil {
+			fail(err)
+		}
+		if options.Verbose {
+			fmt.Printf("Updated successfully\n")
+		}
+	} else {
+		if options.Verbose {
+			fmt.Printf("No update required\n")
+		}
 	}
 }
