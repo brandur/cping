@@ -32,3 +32,9 @@ Then run from the command line:
 ```
 cping
 ```
+
+Install in your Crontab with something like:
+
+```
+*/5 * * * * /usr/local/bin/cping -v 2>&1 | tee -a ~/.cping.log
+```
