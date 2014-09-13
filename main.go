@@ -184,7 +184,8 @@ func main() {
 	}
 	if options.Verbose {
 		fmt.Printf("Record ID for %s [zone: %s]: %s (%s)\n",
-			conf.CloudFlare.Name, conf.CloudFlare.Zone, record.Id, record.Content)
+			conf.CloudFlare.Name, conf.CloudFlare.Zone,
+			record.Id, record.Content)
 	}
 
 	ip, err := getIp()
