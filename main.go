@@ -1,23 +1,30 @@
 package main
 
 import (
+	"code.google.com/p/gcfg"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os/user"
 	"strings"
 )
 
 const (
+	ConfFile         = ".cping"
 	CloudFlareApiUrl = "https://www.cloudflare.com/api_json.html"
 	ICanHazIpUrl     = "https://icanhazip.com"
-
-	Email = ""
-	Name  = ""
-	Zone  = ""
-	Token = ""
 )
+
+type Conf struct {
+	CloudFlare struct {
+		Email string
+		Name  string
+		Token string
+		Zone  string
+	}
+}
 
 type EditRecordWrapper struct {
 	Result string `json:"result"`
@@ -43,12 +50,12 @@ type RecordSet struct {
 	Records []Record `json:"objs"`
 }
 
-func getDnsRecord() (*Record, error) {
+func getDnsRecord(conf *Conf) (*Record, error) {
 	query := url.Values{}
 	query.Set("a", "rec_load_all")
-	query.Set("email", Email)
-	query.Set("tkn", Token)
-	query.Set("z", Zone)
+	query.Set("email", conf.CloudFlare.Email)
+	query.Set("tkn", conf.CloudFlare.Token)
+	query.Set("z", conf.CloudFlare.Zone)
 
 	resp, err := http.Get(CloudFlareApiUrl + "?" + query.Encode())
 	if err != nil {
@@ -72,14 +79,15 @@ func getDnsRecord() (*Record, error) {
 
 	var target *Record
 	for _, record := range result.Response.Records.Records {
-		if record.Name == Name {
+		if record.Name == conf.CloudFlare.Name {
 			target = &record
 			break
 		}
 	}
 
 	if target == nil {
-		return nil, fmt.Errorf("Record not found: %s [zone: %s]", Name, Zone)
+		return nil, fmt.Errorf("Record not found: %s [zone: %s]",
+			conf.CloudFlare.Name, conf.CloudFlare.Zone)
 	}
 
 	return target, nil
@@ -99,17 +107,31 @@ func getIp() (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
-func updateDnsRecord(record *Record, ip string) error {
+func loadConf() (*Conf, error) {
+	user, err := user.Current()
+	if err != nil {
+		return nil, err
+	}
+
+	var conf Conf
+	err = gcfg.ReadFileInto(&conf, user.HomeDir+"/"+ConfFile)
+	if err != nil {
+		return nil, err
+	}
+	return &conf, nil
+}
+
+func updateDnsRecord(conf *Conf, record *Record, ip string) error {
 	form := url.Values{}
 	form.Set("a", "rec_edit")
 	form.Set("content", ip)
-	form.Set("email", Email)
+	form.Set("email", conf.CloudFlare.Email)
 	form.Set("id", record.Id)
-	form.Set("name", Name)
-	form.Set("tkn", Token)
+	form.Set("name", conf.CloudFlare.Name)
+	form.Set("tkn", conf.CloudFlare.Token)
 	form.Set("ttl", record.Ttl)
 	form.Set("type", record.Type)
-	form.Set("z", Zone)
+	form.Set("z", conf.CloudFlare.Zone)
 	resp, err := http.PostForm(CloudFlareApiUrl, form)
 	if err != nil {
 		return err
@@ -134,7 +156,12 @@ func updateDnsRecord(record *Record, ip string) error {
 }
 
 func main() {
-	record, err := getDnsRecord()
+	conf, err := loadConf()
+	if err != nil {
+		panic(err)
+	}
+
+	record, err := getDnsRecord(conf)
 	if err != nil {
 		panic(err)
 	}
@@ -144,7 +171,7 @@ func main() {
 		panic(err)
 	}
 
-	err = updateDnsRecord(record, ip)
+	err = updateDnsRecord(conf, record, ip)
 	if err != nil {
 		panic(err)
 	}
