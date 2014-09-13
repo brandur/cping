@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"os/user"
 	"strings"
 )
@@ -48,6 +49,11 @@ type Record struct {
 
 type RecordSet struct {
 	Records []Record `json:"objs"`
+}
+
+func fail(err error) {
+	fmt.Fprintf(os.Stderr, err.Error()+"\n")
+	os.Exit(1)
 }
 
 func getDnsRecord(conf *Conf) (*Record, error) {
@@ -158,21 +164,21 @@ func updateDnsRecord(conf *Conf, record *Record, ip string) error {
 func main() {
 	conf, err := loadConf()
 	if err != nil {
-		panic(err)
+		fail(err)
 	}
 
 	record, err := getDnsRecord(conf)
 	if err != nil {
-		panic(err)
+		fail(err)
 	}
 
 	ip, err := getIp()
 	if err != nil {
-		panic(err)
+		fail(err)
 	}
 
 	err = updateDnsRecord(conf, record, ip)
 	if err != nil {
-		panic(err)
+		fail(err)
 	}
 }
