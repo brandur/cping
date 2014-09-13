@@ -4,6 +4,7 @@ import (
 	"code.google.com/p/gcfg"
 	"encoding/json"
 	"fmt"
+	flag "github.com/ogier/pflag"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -38,6 +39,10 @@ type LoadRecordResponse struct {
 type LoadRecordWrapper struct {
 	Response LoadRecordResponse `json:"response"`
 	Result   string             `json:"result"`
+}
+
+type Options struct {
+	Verbose bool
 }
 
 type Record struct {
@@ -163,6 +168,10 @@ func updateDnsRecord(conf *Conf, record *Record, ip string) error {
 }
 
 func main() {
+	options := Options{}
+	flag.BoolVarP(&options.Verbose, "verbose", "v", false, "Verbose mode")
+	flag.Parse()
+
 	conf, err := loadConf()
 	if err != nil {
 		fail(err)
@@ -172,14 +181,24 @@ func main() {
 	if err != nil {
 		fail(err)
 	}
+	if options.Verbose {
+		fmt.Printf("Record ID for %s [zone: %s]: %s\n",
+			conf.CloudFlare.Name, conf.CloudFlare.Zone, record.Id)
+	}
 
 	ip, err := getIp()
 	if err != nil {
 		fail(err)
 	}
+	if options.Verbose {
+		fmt.Printf("Current IP: %s\n", ip)
+	}
 
 	err = updateDnsRecord(conf, record, ip)
 	if err != nil {
 		fail(err)
+	}
+	if options.Verbose {
+		fmt.Printf("Updated successfully\n")
 	}
 }
