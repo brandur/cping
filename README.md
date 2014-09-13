@@ -7,12 +7,15 @@ Install with:
 Create `~/.cping` with something like:
 
 ```
-Email = <email>
-Token = <API secret token>
+[cloudflare]
+email = <email>
+name = home.example.com
+token = <API secret token>
+zone = example.com
 ```
 
 Then run from the command line:
 
 ```
-cping --daemonize
+cping
 ```
