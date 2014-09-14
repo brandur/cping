@@ -73,6 +73,7 @@ func getDnsRecord(conf *Conf) (*Record, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -110,6 +111,7 @@ func getIp() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer resp.Body.Close()
 
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -149,6 +151,7 @@ func updateDnsRecord(conf *Conf, record *Record, ip string) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
