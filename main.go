@@ -1,16 +1,17 @@
 package main
 
 import (
-	"code.google.com/p/gcfg"
 	"encoding/json"
 	"fmt"
-	homedir "github.com/mitchellh/go-homedir"
-	flag "github.com/ogier/pflag"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+
+	"code.google.com/p/gcfg"
+	homedir "github.com/mitchellh/go-homedir"
+	flag "github.com/ogier/pflag"
 )
 
 const (
@@ -20,12 +21,14 @@ const (
 )
 
 type Conf struct {
-	CloudFlare struct {
-		Email string
-		Name  string
-		Token string
-		Zone  string
-	}
+	CloudFlare map[string]*ConfSection
+}
+
+type ConfSection struct {
+	Email string
+	Name  string
+	Token string
+	Zone  string
 }
 
 type EditRecordWrapper struct {
@@ -62,12 +65,12 @@ func fail(err error) {
 	os.Exit(1)
 }
 
-func getDnsRecord(conf *Conf) (*Record, error) {
+func getDnsRecord(conf *ConfSection) (*Record, error) {
 	query := url.Values{
 		"a":     {"rec_load_all"},
-		"email": {conf.CloudFlare.Email},
-		"tkn":   {conf.CloudFlare.Token},
-		"z":     {conf.CloudFlare.Zone},
+		"email": {conf.Email},
+		"tkn":   {conf.Token},
+		"z":     {conf.Zone},
 	}
 	resp, err := http.Get(CloudFlareApiUrl + "?" + query.Encode())
 	if err != nil {
@@ -92,7 +95,7 @@ func getDnsRecord(conf *Conf) (*Record, error) {
 
 	var target *Record
 	for _, record := range result.Response.Records.Records {
-		if record.Name == conf.CloudFlare.Name {
+		if record.Name == conf.Name {
 			target = &record
 			break
 		}
@@ -100,7 +103,7 @@ func getDnsRecord(conf *Conf) (*Record, error) {
 
 	if target == nil {
 		return nil, fmt.Errorf("Record not found: %s [zone: %s]",
-			conf.CloudFlare.Name, conf.CloudFlare.Zone)
+			conf.Name, conf.Zone)
 	}
 
 	return target, nil
@@ -135,17 +138,17 @@ func loadConf() (*Conf, error) {
 	return &conf, nil
 }
 
-func updateDnsRecord(conf *Conf, record *Record, ip string) error {
+func updateDnsRecord(conf *ConfSection, record *Record, ip string) error {
 	form := url.Values{
 		"a":       {"rec_edit"},
 		"content": {ip},
-		"email":   {conf.CloudFlare.Email},
+		"email":   {conf.Email},
 		"id":      {record.Id},
-		"name":    {conf.CloudFlare.Name},
-		"tkn":     {conf.CloudFlare.Token},
+		"name":    {conf.Name},
+		"tkn":     {conf.Token},
 		"ttl":     {record.Ttl},
 		"type":    {record.Type},
-		"z":       {conf.CloudFlare.Zone},
+		"z":       {conf.Zone},
 	}
 	resp, err := http.PostForm(CloudFlareApiUrl, form)
 	if err != nil {
@@ -181,16 +184,6 @@ func main() {
 		fail(err)
 	}
 
-	record, err := getDnsRecord(conf)
-	if err != nil {
-		fail(err)
-	}
-	if options.Verbose {
-		fmt.Printf("Record ID for %s [zone: %s]: %s (%s)\n",
-			conf.CloudFlare.Name, conf.CloudFlare.Zone,
-			record.Id, record.Content)
-	}
-
 	ip, err := getIp()
 	if err != nil {
 		fail(err)
@@ -199,17 +192,29 @@ func main() {
 		fmt.Printf("Current IP: %s\n", ip)
 	}
 
-	if record.Content != ip {
-		err = updateDnsRecord(conf, record, ip)
+	for _, confSection := range conf.CloudFlare {
+		record, err := getDnsRecord(confSection)
 		if err != nil {
 			fail(err)
 		}
 		if options.Verbose {
-			fmt.Printf("Updated successfully\n")
+			fmt.Printf("%s: record ID [zone: %s]: %s (%s)\n",
+				confSection.Name, confSection.Zone,
+				record.Id, record.Content)
 		}
-	} else {
-		if options.Verbose {
-			fmt.Printf("No update required\n")
+
+		if record.Content != ip {
+			err = updateDnsRecord(confSection, record, ip)
+			if err != nil {
+				fail(err)
+			}
+			if options.Verbose {
+				fmt.Printf("%s: updated successfully\n", confSection.Name)
+			}
+		} else {
+			if options.Verbose {
+				fmt.Printf("%s: no update required\n", confSection.Name)
+			}
 		}
 	}
 }
