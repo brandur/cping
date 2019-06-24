@@ -9,9 +9,9 @@ import (
 	"os"
 	"strings"
 
-	"code.google.com/p/gcfg"
 	homedir "github.com/mitchellh/go-homedir"
 	flag "github.com/ogier/pflag"
+	"gopkg.in/gcfg.v1"
 )
 
 const (
