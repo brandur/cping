@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/user"
 	"strings"
 
-	homedir "github.com/mitchellh/go-homedir"
 	flag "github.com/ogier/pflag"
 	"gopkg.in/gcfg.v1"
 )
@@ -125,13 +125,13 @@ func getIp() (string, error) {
 }
 
 func loadConf() (*Conf, error) {
-	home, err := homedir.Dir()
+	user, err := user.Current()
 	if err != nil {
 		return nil, err
 	}
 
 	var conf Conf
-	err = gcfg.ReadFileInto(&conf, home+"/"+ConfFile)
+	err = gcfg.ReadFileInto(&conf, user.HomeDir+"/"+ConfFile)
 	if err != nil {
 		return nil, err
 	}
