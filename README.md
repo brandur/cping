@@ -14,7 +14,7 @@ Create `~/.cping` with something like:
 ```
 [cloudflare]
 email = <email>
-name = home.example.com
+name = site.example.com
 token = <API secret token>
 zone = example.com
 ```
