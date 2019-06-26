@@ -1,0 +1,28 @@
+language: go
+
+go:
+  - "1.12"
+
+git:
+  # Use a shallow clone to hopefully speed up builds.
+  depth: 1
+
+notifications:
+  email: never
+    on_success: never
+
+before_install:
+  - travis_retry go get -u github.com/cloudflare/cloudflare-go
+  - travis_retry go get -u github.com/ogier/pflag
+  - travis_retry go get -u gopkg.in/gcfg.v1
+
+  # Tooling
+  - travis_retry go get -u golang.org/x/lint/golint
+
+script:
+  # bail after a single failure anywhere in this sequence
+  - set -e
+
+  - make
+
+  - set -e
