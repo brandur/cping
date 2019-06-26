@@ -1,4 +1,4 @@
-# cping
+# cping [![Build Status](https://travis-ci.org/brandur/cping.svg?branch=master)](https://travis-ci.org/brandur/cping)
 
 Tiny Go program that updates a CloudFlare DNS record with the local host's outward facing IP address. Useful for a dynamic DNS type setup.
 
