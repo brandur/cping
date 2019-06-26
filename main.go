@@ -14,25 +14,25 @@ import (
 )
 
 func main() {
-	options := Options{}
-	flag.BoolVarP(&options.Verbose, "verbose", "v", false, "Verbose mode")
+	opts := runOptions{}
+	flag.BoolVarP(&opts.Verbose, "verbose", "v", false, "Verbose mode")
 	flag.Parse()
 
-	conf, err := loadConf()
+	conf, err := loadconf()
 	if err != nil {
 		fail(err)
 	}
 
-	ip, err := getIp()
+	ip, err := getIP()
 	if err != nil {
 		fail(err)
 	}
-	if options.Verbose {
+	if opts.Verbose {
 		fmt.Printf("Current IP: %s\n", ip)
 	}
 
 	for _, confSection := range conf.CloudFlare {
-		err := updateRecord(&options, ip, confSection)
+		err := updateRecord(&opts, ip, confSection)
 		if err != nil {
 			fail(err)
 		}
@@ -44,22 +44,22 @@ func main() {
 //
 
 const (
-	ConfFile     = ".cping"
-	ICanHazIpUrl = "https://icanhazip.com"
+	confFile     = ".cping"
+	iCanHazIPURL = "https://icanhazip.com"
 )
 
-type Conf struct {
-	CloudFlare map[string]*ConfSection
+type conf struct {
+	CloudFlare map[string]*confSection
 }
 
-type ConfSection struct {
+type confSection struct {
 	Email string
 	Name  string
 	Token string
 	Zone  string
 }
 
-type Options struct {
+type runOptions struct {
 	Verbose bool
 }
 
@@ -68,8 +68,8 @@ func fail(err error) {
 	os.Exit(1)
 }
 
-func getIp() (string, error) {
-	resp, err := http.Get(ICanHazIpUrl)
+func getIP() (string, error) {
+	resp, err := http.Get(iCanHazIPURL)
 	if err != nil {
 		return "", err
 	}
@@ -83,21 +83,21 @@ func getIp() (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
-func loadConf() (*Conf, error) {
+func loadconf() (*conf, error) {
 	user, err := user.Current()
 	if err != nil {
 		return nil, err
 	}
 
-	var conf Conf
-	err = gcfg.ReadFileInto(&conf, user.HomeDir+"/"+ConfFile)
+	var conf conf
+	err = gcfg.ReadFileInto(&conf, user.HomeDir+"/"+confFile)
 	if err != nil {
 		return nil, err
 	}
 	return &conf, nil
 }
 
-func updateRecord(options *Options, ip string, confSection *ConfSection) error {
+func updateRecord(opts *runOptions, ip string, confSection *confSection) error {
 	api, err := cloudflare.New(
 		confSection.Token,
 		confSection.Email,
@@ -129,14 +129,14 @@ func updateRecord(options *Options, ip string, confSection *ConfSection) error {
 
 	record := records[0]
 
-	if options.Verbose {
+	if opts.Verbose {
 		fmt.Printf("%s: record ID [zone: %s]: %s (%s)\n",
 			confSection.Name, confSection.Zone,
 			record.ID, record.Content)
 	}
 
 	if record.Content == ip {
-		if options.Verbose {
+		if opts.Verbose {
 			fmt.Printf("%s: no update required\n", confSection.Name)
 		}
 
@@ -152,7 +152,7 @@ func updateRecord(options *Options, ip string, confSection *ConfSection) error {
 		fail(err)
 	}
 
-	if options.Verbose {
+	if opts.Verbose {
 		fmt.Printf("%s: updated successfully\n", confSection.Name)
 	}
 
