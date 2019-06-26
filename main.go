@@ -1,15 +1,14 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"os"
 	"os/user"
 	"strings"
 
+	"github.com/cloudflare/cloudflare-go"
 	flag "github.com/ogier/pflag"
 	"gopkg.in/gcfg.v1"
 )
@@ -31,82 +30,13 @@ type ConfSection struct {
 	Zone  string
 }
 
-type EditRecordWrapper struct {
-	Result string `json:"result"`
-}
-
-type LoadRecordResponse struct {
-	Records RecordSet `json:"recs"`
-}
-
-type LoadRecordWrapper struct {
-	Response LoadRecordResponse `json:"response"`
-	Result   string             `json:"result"`
-}
-
 type Options struct {
 	Verbose bool
-}
-
-type Record struct {
-	Content string `json:"content"`
-	Id      string `json:"rec_id"`
-	Name    string `json:"name"`
-	Ttl     string `json:"ttl"`
-	Type    string `json:"type"`
-}
-
-type RecordSet struct {
-	Records []Record `json:"objs"`
 }
 
 func fail(err error) {
 	fmt.Fprintf(os.Stderr, err.Error()+"\n")
 	os.Exit(1)
-}
-
-func getDnsRecord(conf *ConfSection) (*Record, error) {
-	query := url.Values{
-		"a":     {"rec_load_all"},
-		"email": {conf.Email},
-		"tkn":   {conf.Token},
-		"z":     {conf.Zone},
-	}
-	resp, err := http.Get(CloudFlareApiUrl + "?" + query.Encode())
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var result LoadRecordWrapper
-	err = json.Unmarshal(data, &result)
-	if err != nil {
-		return nil, err
-	}
-
-	if result.Result != "success" {
-		return nil, fmt.Errorf("Failed to query API for target name")
-	}
-
-	var target *Record
-	for _, record := range result.Response.Records.Records {
-		if record.Name == conf.Name {
-			target = &record
-			break
-		}
-	}
-
-	if target == nil {
-		return nil, fmt.Errorf("Record not found: %s [zone: %s]",
-			conf.Name, conf.Zone)
-	}
-
-	return target, nil
 }
 
 func getIp() (string, error) {
@@ -138,42 +68,6 @@ func loadConf() (*Conf, error) {
 	return &conf, nil
 }
 
-func updateDnsRecord(conf *ConfSection, record *Record, ip string) error {
-	form := url.Values{
-		"a":       {"rec_edit"},
-		"content": {ip},
-		"email":   {conf.Email},
-		"id":      {record.Id},
-		"name":    {conf.Name},
-		"tkn":     {conf.Token},
-		"ttl":     {record.Ttl},
-		"type":    {record.Type},
-		"z":       {conf.Zone},
-	}
-	resp, err := http.PostForm(CloudFlareApiUrl, form)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	var result EditRecordWrapper
-	err = json.Unmarshal(data, &result)
-	if err != nil {
-		return err
-	}
-
-	if result.Result != "success" {
-		return fmt.Errorf("Failed to update API with new content: %s", ip)
-	}
-
-	return nil
-}
-
 func main() {
 	options := Options{}
 	flag.BoolVarP(&options.Verbose, "verbose", "v", false, "Verbose mode")
@@ -193,21 +87,53 @@ func main() {
 	}
 
 	for _, confSection := range conf.CloudFlare {
-		record, err := getDnsRecord(confSection)
+		api, err := cloudflare.New(
+			confSection.Token,
+			confSection.Email,
+		)
 		if err != nil {
 			fail(err)
 		}
+
+		zoneID, err := api.ZoneIDByName(confSection.Zone)
+		if err != nil {
+			fail(err)
+		}
+
+		filter := cloudflare.DNSRecord{Name: confSection.Name, Type: "A"}
+		records, err := api.DNSRecords(zoneID, filter)
+		if err != nil {
+			fail(err)
+		}
+
+		if len(records) < 1 {
+			fail(fmt.Errorf("Record not found: %s [zone: %s]",
+				confSection.Name, confSection.Zone))
+		}
+
+		if len(records) > 1 {
+			fail(fmt.Errorf("Too many records found: %s [zone: %s]",
+				confSection.Name, confSection.Zone))
+		}
+
+		record := records[0]
+
 		if options.Verbose {
 			fmt.Printf("%s: record ID [zone: %s]: %s (%s)\n",
 				confSection.Name, confSection.Zone,
-				record.Id, record.Content)
+				record.ID, record.Content)
 		}
 
 		if record.Content != ip {
-			err = updateDnsRecord(confSection, record, ip)
+			err := api.UpdateDNSRecord(zoneID, record.ID, cloudflare.DNSRecord{
+				Content: ip,
+				Name:    record.Name,
+				Type:    record.Type,
+			})
 			if err != nil {
 				fail(err)
 			}
+
 			if options.Verbose {
 				fmt.Printf("%s: updated successfully\n", confSection.Name)
 			}
