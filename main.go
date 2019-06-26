@@ -13,10 +13,39 @@ import (
 	"gopkg.in/gcfg.v1"
 )
 
+func main() {
+	options := Options{}
+	flag.BoolVarP(&options.Verbose, "verbose", "v", false, "Verbose mode")
+	flag.Parse()
+
+	conf, err := loadConf()
+	if err != nil {
+		fail(err)
+	}
+
+	ip, err := getIp()
+	if err != nil {
+		fail(err)
+	}
+	if options.Verbose {
+		fmt.Printf("Current IP: %s\n", ip)
+	}
+
+	for _, confSection := range conf.CloudFlare {
+		err := updateRecord(&options, ip, confSection)
+		if err != nil {
+			fail(err)
+		}
+	}
+}
+
+//
+// Private
+//
+
 const (
-	ConfFile         = ".cping"
-	CloudFlareApiUrl = "https://www.cloudflare.com/api_json.html"
-	ICanHazIpUrl     = "https://icanhazip.com"
+	ConfFile     = ".cping"
+	ICanHazIpUrl = "https://icanhazip.com"
 )
 
 type Conf struct {
@@ -128,30 +157,4 @@ func updateRecord(options *Options, ip string, confSection *ConfSection) error {
 	}
 
 	return nil
-}
-
-func main() {
-	options := Options{}
-	flag.BoolVarP(&options.Verbose, "verbose", "v", false, "Verbose mode")
-	flag.Parse()
-
-	conf, err := loadConf()
-	if err != nil {
-		fail(err)
-	}
-
-	ip, err := getIp()
-	if err != nil {
-		fail(err)
-	}
-	if options.Verbose {
-		fmt.Printf("Current IP: %s\n", ip)
-	}
-
-	for _, confSection := range conf.CloudFlare {
-		err := updateRecord(&options, ip, confSection)
-		if err != nil {
-			fail(err)
-		}
-	}
 }
